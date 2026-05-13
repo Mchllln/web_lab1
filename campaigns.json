@@ -1,0 +1,36 @@
+[ {
+  "name" : "Summer Sale",
+  "totalBudget" : 12000.0,
+  "creatives" : [ {
+    "title" : "Banner Ad",
+    "cpc" : 1.5,
+    "clicks" : 3000
+  }, {
+    "title" : "Video Ad",
+    "cpc" : 2.0,
+    "clicks" : 1500
+  } ],
+  "remainingBudget" : 4500.0
+}, {
+  "name" : "Product Launch",
+  "totalBudget" : 8000.0,
+  "creatives" : [ {
+    "title" : "Search Ad",
+    "cpc" : 0.8,
+    "clicks" : 5000
+  }, {
+    "title" : "Social Media Ad",
+    "cpc" : 1.2,
+    "clicks" : 2500
+  } ],
+  "remainingBudget" : 1000.0
+}, {
+  "name" : "Brand Awareness",
+  "totalBudget" : 3000.0,
+  "creatives" : [ {
+    "title" : "Display Ad",
+    "cpc" : 0.5,
+    "clicks" : 4000
+  } ],
+  "remainingBudget" : 1000.0
+} ]

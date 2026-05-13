@@ -1,0 +1,11 @@
+target/
+.idea/
+*.iml
+*.class
+*.jar
+*.war
+*.ear
+*.log
+.DS_Store
+.vscode/
+*.swp

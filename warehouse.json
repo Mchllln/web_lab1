@@ -1,0 +1,10 @@
+{
+  "name" : "Main Warehouse",
+  "location" : "Building A",
+  "products" : [ {
+    "sku" : "car",
+    "name" : "car",
+    "price" : 2000.0,
+    "quantity" : 7
+  } ]
+}

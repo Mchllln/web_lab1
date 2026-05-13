@@ -1,0 +1,588 @@
+Category.java
+
+package inventory.domain;
+
+import java.util.Objects;
+
+public class Category {
+
+    private String id;
+    private String name;
+    private String description;
+
+    public Category() {}
+
+    public Category(String id, String name, String description) {
+        this.id = id;
+        this.name = name;
+        this.description = description;
+    }
+
+    public String getId() { return id; }
+    public void setId(String id) { this.id = id; }
+
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
+
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description; }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Category)) return false;
+        Category that = (Category) o;
+        return Objects.equals(id, that.id)
+                && Objects.equals(name, that.name)
+                && Objects.equals(description, that.description);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id, name, description);
+    }
+
+    @Override
+    public String toString() {
+        return "Category{id='" + id + "', name='" + name + "'}";
+    }
+}
+
+
+Product.java
+
+package inventory.domain;
+
+import java.util.Objects;
+
+public class Product {
+
+    private String sku;
+    private String name;
+    private double price;
+    private int quantity;
+
+    public Product() {}
+
+    public Product(String sku, String name, double price, int quantity) {
+        this.sku = sku;
+        this.name = name;
+        this.price = price;
+        this.quantity = quantity;
+    }
+
+    public void reduceStock(int amount) {
+        if (amount > quantity) {
+            throw new IllegalStateException("Not enough stock");
+        }
+        quantity -= amount;
+    }
+
+    public void addStock(int amount) {
+        if (amount <= 0) {
+            throw new IllegalArgumentException("Amount must be positive");
+        }
+        quantity += amount;
+    }
+
+    public String getSku() { return sku; }
+    public void setSku(String sku) { this.sku = sku; }
+
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
+
+    public double getPrice() { return price; }
+    public void setPrice(double price) { this.price = price; }
+
+    public int getQuantity() { return quantity; }
+    public void setQuantity(int quantity) { this.quantity = quantity; }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Product)) return false;
+        Product that = (Product) o;
+        return Double.compare(that.price, price) == 0
+                && quantity == that.quantity
+                && Objects.equals(sku, that.sku)
+                && Objects.equals(name, that.name);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(sku, name, price, quantity);
+    }
+
+    @Override
+    public String toString() {
+        return "Product{sku='" + sku + "', name='" + name
+                + "', price=" + price + ", quantity=" + quantity + "}";
+    }
+}
+
+
+Warehouse.java
+
+package inventory.domain;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+
+public class Warehouse {
+
+    private String name;
+    private String location;
+    private List<Product> products;
+
+    public Warehouse() {
+        this.products = new ArrayList<>();
+    }
+
+    public Warehouse(String name, String location, List<Product> products) {
+        this.name = name;
+        this.location = location;
+        this.products = products != null ? products : new ArrayList<>();
+    }
+
+    public double calculateTotalInventoryValue() {
+        return products.stream()
+                .mapToDouble(p -> p.getPrice() * p.getQuantity())
+                .sum();
+    }
+
+    public Optional<Product> findBySku(String sku) {
+        return products.stream()
+                .filter(p -> p.getSku().equalsIgnoreCase(sku))
+                .findFirst();
+    }
+
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
+
+    public String getLocation() { return location; }
+    public void setLocation(String location) { this.location = location; }
+
+    public List<Product> getProducts() { return products; }
+    public void setProducts(List<Product> products) { this.products = products; }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Warehouse)) return false;
+        Warehouse that = (Warehouse) o;
+        return Objects.equals(name, that.name)
+                && Objects.equals(location, that.location)
+                && Objects.equals(products, that.products);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(name, location, products);
+    }
+
+    @Override
+    public String toString() {
+        return "Warehouse{name='" + name + "', location='" + location
+                + "', products=" + products.size() + "}";
+    }
+}
+
+
+Storage.java
+
+package inventory.service;
+
+import inventory.domain.Warehouse;
+
+import java.io.IOException;
+
+public interface Storage {
+
+    void saveToFile(Warehouse warehouse, String filename) throws IOException;
+
+    Warehouse loadFromFile(String filename) throws IOException;
+}
+
+
+JsonStorage.java
+
+package inventory.service;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import inventory.domain.Warehouse;
+
+import java.io.File;
+import java.io.IOException;
+
+public class JsonStorage implements Storage {
+
+    private final ObjectMapper objectMapper;
+
+    public JsonStorage() {
+        this.objectMapper = new ObjectMapper();
+        this.objectMapper.enable(SerializationFeature.INDENT_OUTPUT);
+    }
+
+    @Override
+    public void saveToFile(Warehouse warehouse, String filename) throws IOException {
+        objectMapper.writeValue(new File(filename), warehouse);
+    }
+
+    @Override
+    public Warehouse loadFromFile(String filename) throws IOException {
+        return objectMapper.readValue(new File(filename), Warehouse.class);
+    }
+}
+
+
+InventoryService.java
+
+package inventory.service;
+
+import inventory.domain.Product;
+import inventory.domain.Warehouse;
+
+import java.io.IOException;
+import java.util.Comparator;
+import java.util.List;
+import java.util.stream.Collectors;
+
+public class InventoryService {
+
+    private final Storage storage;
+
+    public InventoryService(Storage storage) {
+        this.storage = storage;
+    }
+
+    public void exportData(Warehouse warehouse, String filename) throws IOException {
+        List<Product> sorted = warehouse.getProducts().stream()
+                .sorted(Comparator.comparingInt(Product::getQuantity).reversed())
+                .collect(Collectors.toList());
+        warehouse.setProducts(sorted);
+        storage.saveToFile(warehouse, filename);
+    }
+
+    public Warehouse importData(String filename) throws IOException {
+        return storage.loadFromFile(filename);
+    }
+}
+
+
+Main.java
+
+package inventory;
+
+import inventory.domain.Product;
+import inventory.domain.Warehouse;
+import inventory.service.InventoryService;
+import inventory.service.JsonStorage;
+
+import java.util.ArrayList;
+import java.util.Scanner;
+
+public class Main {
+
+    private static final String DEFAULT_FILE = "warehouse.json";
+    private static final InventoryService service = new InventoryService(new JsonStorage());
+    private static Warehouse warehouse = new Warehouse("Main Warehouse", "Building A", new ArrayList<>());
+
+    public static void main(String[] args) {
+        Scanner scanner = new Scanner(System.in);
+        boolean running = true;
+
+        System.out.println("=== Inventory Management System ===");
+
+        while (running) {
+            printMenu();
+            System.out.print("Your choice: ");
+            String input = scanner.nextLine().trim();
+
+            switch (input) {
+                case "1" -> addProduct(scanner);
+                case "2" -> sellProduct(scanner);
+                case "3" -> restockProduct(scanner);
+                case "4" -> viewInventory();
+                case "5" -> exportData();
+                case "6" -> importData();
+                case "0" -> {
+                    System.out.println("Goodbye!");
+                    running = false;
+                }
+                default -> System.out.println("Invalid option. Please try again.");
+            }
+        }
+
+        scanner.close();
+    }
+
+    private static void printMenu() {
+        System.out.println();
+        System.out.println("--- Menu ---");
+        System.out.println("1. Add new product to warehouse");
+        System.out.println("2. Sell product");
+        System.out.println("3. Restock product");
+        System.out.println("4. View inventory and total value");
+        System.out.println("5. Export to JSON");
+        System.out.println("6. Import from JSON");
+        System.out.println("0. Exit");
+    }
+
+    private static void addProduct(Scanner scanner) {
+        System.out.print("SKU: ");
+        String sku = scanner.nextLine().trim();
+
+        System.out.print("Name: ");
+        String name = scanner.nextLine().trim();
+
+        double price = readDouble(scanner, "Price: ");
+        if (price < 0) { System.out.println("Price cannot be negative."); return; }
+
+        int quantity = readInt(scanner, "Quantity: ");
+        if (quantity < 0) { System.out.println("Quantity cannot be negative."); return; }
+
+        warehouse.getProducts().add(new Product(sku, name, price, quantity));
+        System.out.println("Product '" + name + "' added successfully.");
+    }
+
+    private static void sellProduct(Scanner scanner) {
+        System.out.print("SKU: ");
+        String sku = scanner.nextLine().trim();
+
+        warehouse.findBySku(sku).ifPresentOrElse(product -> {
+            int amount = readInt(scanner, "Quantity to sell: ");
+            try {
+                product.reduceStock(amount);
+                System.out.println("Sold " + amount + " unit(s) of '" + product.getName()
+                        + "'. Remaining stock: " + product.getQuantity());
+            } catch (IllegalStateException e) {
+                System.out.println("Error: " + e.getMessage()
+                        + " (available: " + product.getQuantity() + ")");
+            }
+        }, () -> System.out.println("Product with SKU '" + sku + "' not found."));
+    }
+
+    private static void restockProduct(Scanner scanner) {
+        System.out.print("SKU: ");
+        String sku = scanner.nextLine().trim();
+
+        warehouse.findBySku(sku).ifPresentOrElse(product -> {
+            int amount = readInt(scanner, "Quantity to add: ");
+            try {
+                product.addStock(amount);
+                System.out.println("Restocked '" + product.getName()
+                        + "'. New stock: " + product.getQuantity());
+            } catch (IllegalArgumentException e) {
+                System.out.println("Error: " + e.getMessage());
+            }
+        }, () -> System.out.println("Product with SKU '" + sku + "' not found."));
+    }
+
+    private static void viewInventory() {
+        if (warehouse.getProducts().isEmpty()) {
+            System.out.println("Warehouse is empty. Add products first (option 1).");
+            return;
+        }
+
+        System.out.println();
+        System.out.printf("%-12s %-28s %10s %10s%n", "SKU", "Name", "Price", "Qty");
+        System.out.println("-".repeat(64));
+
+        for (Product p : warehouse.getProducts()) {
+            System.out.printf("%-12s %-28s %10.2f %10d%n",
+                    p.getSku(), p.getName(), p.getPrice(), p.getQuantity());
+        }
+
+        System.out.println("-".repeat(64));
+        System.out.printf("Total inventory value: $%.2f%n",
+                warehouse.calculateTotalInventoryValue());
+    }
+
+    private static void exportData() {
+        if (warehouse.getProducts().isEmpty()) {
+            System.out.println("No data available for export.");
+            return;
+        }
+        try {
+            service.exportData(warehouse, DEFAULT_FILE);
+            System.out.println("Warehouse exported to: " + DEFAULT_FILE
+                    + " (sorted by quantity descending)");
+        } catch (Exception e) {
+            System.out.println("Export failed: " + e.getMessage());
+        }
+    }
+
+    private static void importData() {
+        try {
+            warehouse = service.importData(DEFAULT_FILE);
+            System.out.println("Warehouse imported from: " + DEFAULT_FILE
+                    + " (" + warehouse.getProducts().size() + " products)");
+        } catch (Exception e) {
+            System.out.println("Import failed: " + e.getMessage());
+        }
+    }
+
+    private static int readInt(Scanner scanner, String prompt) {
+        while (true) {
+            System.out.print(prompt);
+            try {
+                return Integer.parseInt(scanner.nextLine().trim());
+            } catch (NumberFormatException e) {
+                System.out.println("Invalid input. Please enter a whole number.");
+            }
+        }
+    }
+
+    private static double readDouble(Scanner scanner, String prompt) {
+        while (true) {
+            System.out.print(prompt);
+            try {
+                return Double.parseDouble(scanner.nextLine().trim());
+            } catch (NumberFormatException e) {
+                System.out.println("Invalid input. Please enter a numeric value.");
+            }
+        }
+    }
+}
+
+
+AppTest.java
+
+package inventory;
+
+import inventory.domain.Product;
+import inventory.domain.Warehouse;
+import inventory.service.InventoryService;
+import inventory.service.Storage;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+class AppTest {
+
+    private Product product;
+    private Warehouse warehouse;
+    private Storage storageMock;
+    private InventoryService inventoryService;
+
+    @BeforeEach
+    void setUp() {
+        product = new Product("SKU-001", "Laptop", 999.99, 10);
+        warehouse = new Warehouse("Test Warehouse", "Zone A",
+                new java.util.ArrayList<>(List.of(product)));
+        storageMock = mock(Storage.class);
+        inventoryService = new InventoryService(storageMock);
+    }
+
+    // --- Product.reduceStock tests ---
+
+    @Test
+    @DisplayName("reduceStock decreases quantity correctly")
+    void testReduceStock_decreasesQuantity() {
+        product.reduceStock(3);
+        assertEquals(7, product.getQuantity());
+    }
+
+    @Test
+    @DisplayName("reduceStock throws IllegalStateException when stock is insufficient")
+    void testReduceStock_insufficientStock_throwsException() {
+        assertThrows(IllegalStateException.class, () -> product.reduceStock(11));
+    }
+
+    @Test
+    @DisplayName("reduceStock with exact quantity brings stock to zero")
+    void testReduceStock_exactQuantity_bringsToZero() {
+        product.reduceStock(10);
+        assertEquals(0, product.getQuantity());
+    }
+
+    // --- Product.addStock tests ---
+
+    @Test
+    @DisplayName("addStock increases quantity correctly")
+    void testAddStock_increasesQuantity() {
+        product.addStock(5);
+        assertEquals(15, product.getQuantity());
+    }
+
+    @Test
+    @DisplayName("addStock throws IllegalArgumentException for zero amount")
+    void testAddStock_zeroAmount_throwsException() {
+        assertThrows(IllegalArgumentException.class, () -> product.addStock(0));
+    }
+
+    @Test
+    @DisplayName("addStock throws IllegalArgumentException for negative amount")
+    void testAddStock_negativeAmount_throwsException() {
+        assertThrows(IllegalArgumentException.class, () -> product.addStock(-5));
+    }
+
+    // --- Warehouse.calculateTotalInventoryValue tests ---
+
+    @Test
+    @DisplayName("calculateTotalInventoryValue returns correct total")
+    void testCalculateTotalInventoryValue_returnsCorrectTotal() {
+        double expected = 999.99 * 10;
+        assertEquals(expected, warehouse.calculateTotalInventoryValue(), 0.001);
+    }
+
+    @Test
+    @DisplayName("calculateTotalInventoryValue returns zero for empty warehouse")
+    void testCalculateTotalInventoryValue_emptyWarehouse_returnsZero() {
+        Warehouse empty = new Warehouse("Empty", "Zone B", new java.util.ArrayList<>());
+        assertEquals(0.0, empty.calculateTotalInventoryValue(), 0.001);
+    }
+
+    // --- InventoryService + Mockito tests ---
+
+    @Test
+    @DisplayName("exportData calls saveToFile exactly once")
+    void testExportData_callsSaveToFileOnce() throws IOException {
+        inventoryService.exportData(warehouse, "output.json");
+        verify(storageMock, times(1)).saveToFile(any(Warehouse.class), eq("output.json"));
+    }
+
+    @Test
+    @DisplayName("exportData sorts products by quantity descending before saving")
+    void testExportData_sortsByQuantityDescending() throws IOException {
+        Product low    = new Product("A", "Low Stock Item",    5.0,  2);
+        Product high   = new Product("B", "High Stock Item",   3.0, 50);
+        Product medium = new Product("C", "Medium Stock Item", 8.0, 20);
+
+        Warehouse w = new Warehouse("Sort Test", "Zone C",
+                new java.util.ArrayList<>(Arrays.asList(low, high, medium)));
+
+        ArgumentCaptor<Warehouse> captor = ArgumentCaptor.forClass(Warehouse.class);
+
+        inventoryService.exportData(w, "sorted.json");
+
+        verify(storageMock).saveToFile(captor.capture(), eq("sorted.json"));
+        List<Product> saved = captor.getValue().getProducts();
+
+        assertEquals("B", saved.get(0).getSku());
+        assertEquals("C", saved.get(1).getSku());
+        assertEquals("A", saved.get(2).getSku());
+    }
+
+    @Test
+    @DisplayName("importData returns warehouse loaded from storage")
+    void testImportData_returnsWarehouseFromStorage() throws IOException {
+        when(storageMock.loadFromFile("input.json")).thenReturn(warehouse);
+
+        Warehouse result = inventoryService.importData("input.json");
+
+        assertEquals(warehouse, result);
+        verify(storageMock, times(1)).loadFromFile("input.json");
+    }
+}
